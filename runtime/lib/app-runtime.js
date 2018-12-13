@@ -458,6 +458,53 @@ AppRuntime.prototype.onVoiceCommand = function (asr, nlp, action, options) {
 }
 
 /**
+ * handle mqtt 'event' message
+ * @param {string} message message string received from mqtt
+ */
+AppRuntime.prototype.onAppEvent = function (message) {
+  var data = {}
+  try {
+    data = JSON.parse(message)
+  } catch (error) {
+    data = {}
+    logger.debug('parse mqtt event message error: message -> ', message)
+    return
+  }
+  var skillId = data.appId
+  if (typeof skillId !== 'string') {
+    logger.error('Expecting data.appId exists in mqtt event message.')
+    return
+  }
+  var form = _.get(data, 'form')
+  if (typeof form !== 'string') {
+    form = _.get(this.loader.skillAttrsMap[skillId], 'defaultForm')
+  }
+  if (!form) {
+    form = 'cut'
+  }
+
+  var mockNlp = {
+    cloud: false,
+    intent: 'RokidAppCommand',
+    command: data.intent,
+    data: data.slots,
+    appId: skillId
+  }
+  var mockAction = {
+    appId: skillId,
+    version: '2.0.0',
+    startWithActiveWord: false,
+    response: {
+      action: {
+        appId: skillId,
+        form: form
+      }
+    }
+  }
+  this.onVoiceCommand('', mockNlp, mockAction)
+}
+
+/**
  *
  * > Note: currently only `yoda-skill:` scheme is supported.
  *
